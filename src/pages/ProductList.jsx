@@ -1,12 +1,21 @@
 import { useEffect, useState } from "react";
-import { getProducts } from "../services/productService";
+import { getAllProducts, getCategories } from "../services/productService";
 import ProductCard from "../components/ProductCard";
+import FilterSidebar from "../components/FilterSidebar";
 import Loader from "../components/Loader";
 import ErrorMessage from "../components/ErrorMessage";
 
 function ProductList() {
 
-  const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [brands, setBrands] = useState([]);
+
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedBrand, setSelectedBrand] = useState("");
+
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -18,10 +27,26 @@ function ProductList() {
     try {
       setLoading(true);
 
-      const data = await getProducts();
+      const productsData =
+        await getAllProducts();
 
-      setProducts(data.products);
-    } catch (err) {
+      const categoriesData =
+        await getCategories();
+
+      setAllProducts(productsData);
+      setCategories(categoriesData);
+
+      const uniqueBrands = [
+        ...new Set(
+          productsData
+            .map((p) => p.brand)
+            .filter(Boolean)
+        ),
+      ];
+
+      setBrands(uniqueBrands);
+
+    } catch (error) {
       setError("Failed to load products");
     } finally {
       setLoading(false);
@@ -31,25 +56,67 @@ function ProductList() {
   if (loading) return <Loader />;
   if (error) return <ErrorMessage message={error} />;
 
+  const filteredProducts =
+  allProducts.filter((product) => {
+
+    const categoryMatch =
+      !selectedCategory ||
+      product.category === selectedCategory;
+
+    const brandMatch =
+      !selectedBrand ||
+      product.brand === selectedBrand;
+
+    const minMatch =
+      !minPrice ||
+      product.price >= Number(minPrice);
+
+    const maxMatch =
+      !maxPrice ||
+      product.price <= Number(maxPrice);
+
+    return (
+      categoryMatch &&
+      brandMatch &&
+      minMatch &&
+      maxMatch
+    );
+  });
+
   return (
-    <div className="p-6">
+    <div className="grid grid-cols-12 gap-6">
 
-      <h1 className="text-3xl font-bold mb-6">
-        Products
-      </h1>
+    <div className="col-span-12 md:col-span-3">
+      <FilterSidebar
+        categories={categories}
+        brands={brands}
+        selectedCategory={selectedCategory}
+        selectedBrand={selectedBrand}
+        minPrice={minPrice}
+        maxPrice={maxPrice}
+        setSelectedCategory={setSelectedCategory}
+        setSelectedBrand={setSelectedBrand}
+        setMinPrice={setMinPrice}
+        setMaxPrice={setMaxPrice}
+      />
+    </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+  <div className="col-span-12 md:col-span-9">
 
-        {products.map((product) => (
-          <ProductCard
-            key={product.id}
-            product={product}
-          />
-        ))}
+    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-      </div>
+      {filteredProducts.map((product) => (
+        <ProductCard
+          key={product.id}
+          product={product}
+        />
+      ))}
 
     </div>
+
+  </div>
+
+</div>
   );
 }
 
